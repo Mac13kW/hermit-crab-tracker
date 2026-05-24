@@ -1,0 +1,19 @@
+name = "hermit-crab-api"
+main = "worker.js"
+compatibility_date = "2024-01-01"
+
+# Bind your D1 database — create it first with:
+#   wrangler d1 create hermit-crabs
+# then paste the database_id shown in the output below.
+[[d1_databases]]
+binding = "DB"
+database_name = "hermit-crabs"
+database_id = "8604982b-9014-4b10-8daf-0f8aed0150b3"
+[[r2_buckets]]
+binding = "PHOTOS"
+bucket_name = "hermit-crab-photos"
+
+# If you deploy the Worker on a custom route alongside Pages:
+# [[routes]]
+# pattern = "hermitcrabwatch.com/api/*"
+# zone_name = "hermitcrabwatch.com"

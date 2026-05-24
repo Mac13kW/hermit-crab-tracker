@@ -1,0 +1,646 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Find A Hermit Crab 🦀</title>
+
+  <!-- Leaflet -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <!-- Leaflet marker cluster -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
+  <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+  <!-- Image compression -->
+  <script src="https://cdn.jsdelivr.net/npm/browser-image-compression@2.0.2/dist/browser-image-compression.js"></script>
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;1,400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet" />
+
+  <style>
+    :root {
+      --sand:    #f5ede0;
+      --sand2:   #e8d8c0;
+      --ocean:   #1a5f7a;
+      --ocean2:  #0d3d52;
+      --teal:    #2ab3b3;
+      --coral:   #e8725a;
+      --foam:    #d4eef4;
+      --text:    #1c2b30;
+      --muted:   #6b8a93;
+      --white:   #ffffff;
+      --radius:  12px;
+      --shadow:  0 4px 24px rgba(26,95,122,.15);
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background: var(--sand);
+      color: var(--text);
+      display: flex;
+      flex-direction: column;
+      height: 100dvh;
+      overflow: hidden;
+    }
+
+    header {
+      background: var(--ocean2);
+      color: var(--white);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 1.5rem;
+      height: 58px;
+      flex-shrink: 0;
+      box-shadow: 0 2px 12px rgba(0,0,0,.3);
+      z-index: 1000;
+    }
+
+    .logo {
+      font-family: 'Playfair Display', serif;
+      font-size: 1.4rem;
+      letter-spacing: .02em;
+      display: flex;
+      align-items: center;
+      gap: .5rem;
+    }
+    .logo span { font-style: italic; color: var(--teal); }
+    .header-actions { display: flex; gap: .75rem; }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: .4rem;
+      padding: .5rem 1.1rem;
+      border: none;
+      border-radius: 99px;
+      font-family: inherit;
+      font-size: .875rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: transform .12s, box-shadow .12s, background .15s;
+    }
+    .btn:active { transform: scale(.96); }
+    .btn-primary { background: var(--coral); color: var(--white); box-shadow: 0 2px 8px rgba(232,114,90,.4); }
+    .btn-primary:hover { background: #d45e47; }
+    .btn-ghost { background: rgba(255,255,255,.12); color: var(--white); border: 1px solid rgba(255,255,255,.2); }
+    .btn-ghost:hover { background: rgba(255,255,255,.2); }
+    .btn-sm { padding: .35rem .85rem; font-size: .8rem; }
+    .btn-upvote { background: var(--foam); color: var(--ocean); border: 1px solid var(--teal); font-weight: 500; }
+    .btn-upvote:hover, .btn-upvote.voted { background: var(--teal); color: var(--white); }
+    .btn-cancel { background: var(--sand); color: var(--text); border: 1px solid var(--sand2); }
+    .btn-cancel:hover { background: var(--sand2); }
+
+    .workspace { display: flex; flex: 1; overflow: hidden; position: relative; }
+    #map { flex: 1; cursor: crosshair; }
+
+    #map-hint {
+      position: absolute;
+      bottom: 1.5rem;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--ocean2);
+      color: var(--white);
+      font-size: .8rem;
+      padding: .4rem 1rem;
+      border-radius: 99px;
+      pointer-events: none;
+      opacity: 1;
+      transition: opacity .6s;
+      z-index: 800;
+    }
+
+    #sidebar {
+      width: 360px;
+      flex-shrink: 0;
+      background: var(--white);
+      border-left: 1px solid var(--sand2);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      transition: width .3s;
+    }
+    #sidebar.collapsed { width: 0; }
+
+    .sidebar-header {
+      background: var(--foam);
+      padding: 1rem 1.25rem .75rem;
+      border-bottom: 1px solid var(--sand2);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+    }
+    .sidebar-header h2 { font-family: 'Playfair Display', serif; font-size: 1.1rem; color: var(--ocean2); }
+
+    #sightings-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: .75rem;
+      display: flex;
+      flex-direction: column;
+      gap: .6rem;
+    }
+
+    .card {
+      background: var(--sand);
+      border-radius: var(--radius);
+      padding: .9rem 1rem;
+      border: 1px solid var(--sand2);
+      cursor: pointer;
+      transition: box-shadow .15s, transform .12s;
+    }
+    .card:hover { box-shadow: var(--shadow); transform: translateY(-1px); }
+    .card.active { border-color: var(--teal); box-shadow: 0 0 0 2px var(--teal); background: var(--foam); }
+
+    .card-nick { font-size: .75rem; color: var(--muted); margin-bottom: .3rem; }
+    .card-desc { font-size: .82rem; line-height: 1.5; margin: .4rem 0 .6rem; color: var(--text); }
+    .card-photo { width: 100%; border-radius: 8px; max-height: 140px; object-fit: cover; margin-bottom: .6rem; }
+    .card-footer { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; }
+    .card-date { font-size: .72rem; color: var(--muted); margin-left: auto; }
+
+    .comments-section { margin-top: .75rem; border-top: 1px solid var(--sand2); padding-top: .6rem; display: none; }
+    .comments-section.open { display: block; }
+    .comment-item { font-size: .8rem; line-height: 1.5; padding: .4rem 0; border-bottom: 1px solid var(--sand2); color: var(--text); }
+    .comment-item:last-child { border-bottom: none; }
+    .comment-nick { font-weight: 500; color: var(--ocean); }
+    .comment-form { display: flex; flex-direction: column; gap: .4rem; margin-top: .5rem; }
+
+    input, textarea {
+      font-family: 'DM Sans', sans-serif;
+      font-size: .875rem;
+      border: 1px solid var(--sand2);
+      border-radius: 8px;
+      padding: .5rem .75rem;
+      background: var(--white);
+      color: var(--text);
+      outline: none;
+      transition: border-color .15s, box-shadow .15s;
+      width: 100%;
+    }
+    input:focus, textarea:focus { border-color: var(--teal); box-shadow: 0 0 0 3px rgba(42,179,179,.15); }
+    textarea { resize: vertical; min-height: 72px; }
+    label { font-size: .8rem; font-weight: 500; color: var(--muted); display: block; margin-bottom: .2rem; }
+
+    .overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(13,61,82,.6);
+      backdrop-filter: blur(3px);
+      z-index: 2000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .2s;
+    }
+    .overlay.open { opacity: 1; pointer-events: all; }
+
+    .modal {
+      background: var(--white);
+      border-radius: 16px;
+      padding: 1.75rem;
+      width: min(480px, 92vw);
+      box-shadow: 0 20px 60px rgba(13,61,82,.3);
+      transform: translateY(12px);
+      transition: transform .25s;
+    }
+    .overlay.open .modal { transform: translateY(0); }
+    .modal h3 { font-family: 'Playfair Display', serif; font-size: 1.3rem; color: var(--ocean2); margin-bottom: .25rem; }
+    .modal p.sub { font-size: .82rem; color: var(--muted); margin-bottom: 1.1rem; }
+
+    .form-grid { display: grid; grid-template-columns: 1fr; gap: .75rem; }
+    .modal-actions { display: flex; justify-content: flex-end; gap: .6rem; margin-top: 1.1rem; }
+
+    .empty { text-align: center; padding: 2rem 1rem; color: var(--muted); font-size: .875rem; }
+    .empty .emoji { font-size: 2.5rem; display: block; margin-bottom: .5rem; }
+
+    #toast {
+      position: fixed;
+      bottom: 1.5rem;
+      right: 1.5rem;
+      background: var(--ocean2);
+      color: var(--white);
+      padding: .7rem 1.2rem;
+      border-radius: 8px;
+      font-size: .875rem;
+      z-index: 3000;
+      transform: translateY(20px);
+      opacity: 0;
+      transition: transform .25s, opacity .25s;
+      pointer-events: none;
+    }
+    #toast.show { transform: translateY(0); opacity: 1; }
+    #toast.error { background: var(--coral); }
+
+    #stats-bar {
+      background: var(--ocean);
+      color: rgba(255,255,255,.85);
+      font-size: .78rem;
+      display: flex;
+      gap: 1.5rem;
+      padding: .3rem 1.5rem;
+      flex-shrink: 0;
+    }
+
+    @media (max-width: 640px) {
+      #sidebar { position: fixed; right: 0; top: 58px; bottom: 0; z-index: 900; box-shadow: -4px 0 20px rgba(0,0,0,.2); }
+      #sidebar.collapsed { width: 0; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">🦀 Find A <span>Hermit Crab</span></div>
+  <div class="header-actions">
+    <button class="btn btn-ghost btn-sm" id="toggle-sidebar-btn">📋 Sightings</button>
+  </div>
+</header>
+
+<div id="stats-bar">
+  <span><strong id="stat-count">–</strong> sightings</span>
+  <span><strong id="stat-countries">–</strong> regions</span>
+  <span><strong id="stat-upvotes">–</strong> total upvotes</span>
+</div>
+
+<div class="workspace">
+  <div id="map"></div>
+  <div id="map-hint">🖱 Click anywhere on the map to add a sighting</div>
+
+  <div id="sidebar">
+    <div class="sidebar-header">
+      <h2>Recent Sightings</h2>
+      <button class="btn btn-sm" id="close-sidebar" style="color:var(--ocean);background:transparent;border:none">✕</button>
+    </div>
+    <div id="sightings-list"><div class="empty"><span class="emoji">🌊</span>Loading sightings…</div></div>
+  </div>
+</div>
+
+<div class="overlay" id="modal-overlay">
+  <div class="modal">
+    <h3>Report a Sighting 🦀</h3>
+    <p class="sub" id="modal-coords">Click on the map to set the location</p>
+    <div class="form-grid">
+      <div>
+        <label>Your nickname</label>
+        <input id="f-nick" type="text" placeholder="BeachExplorer" maxlength="40" />
+      </div>
+      <div>
+        <label>Description *</label>
+        <textarea id="f-desc" placeholder="Describe where you found them, how many, time of day…" maxlength="1000"></textarea>
+      </div>
+      <div>
+        <label>Photo (optional)</label>
+        <input id="f-photo" type="file" accept="image/*" capture="environment" />
+        <div id="f-photo-preview" style="display:none;margin-top:.5rem">
+          <img id="f-photo-img" style="width:100%;border-radius:8px;max-height:160px;object-fit:cover" alt="preview" />
+        </div>
+      </div>
+      <input type="text" id="f-pot" style="display:none" tabindex="-1" autocomplete="off" />
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-cancel" id="modal-cancel">Cancel</button>
+      <button class="btn btn-primary" id="modal-submit">Submit Sighting</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+  const API = 'https://hermit-crab-api.m-multiple152.workers.dev';
+
+  let sightings = [];
+  let pendingLatLng = null;
+  let activeCardId = null;
+  let markers = {};
+
+  // ── Map ───────────────────────────────────────────────────────────────
+  const map = L.map('map', { center: [20, 0], zoom: 2 });
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© <a href="https://openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+    maxZoom: 19,
+  }).addTo(map);
+
+  const clusterGroup = L.markerClusterGroup({ maxClusterRadius: 50 });
+  map.addLayer(clusterGroup);
+
+  function crabIcon(upvotes = 0) {
+    const size = Math.min(36 + upvotes * 2, 56);
+    return L.divIcon({
+      className: '',
+      html: `<div style="font-size:${size * .6}px;line-height:1;filter:drop-shadow(0 2px 4px rgba(0,0,0,.35))">🦀</div>`,
+      iconSize: [size, size],
+      iconAnchor: [size / 2, size / 2],
+    });
+  }
+
+  map.on('click', e => {
+    pendingLatLng = e.latlng;
+    document.getElementById('modal-coords').textContent =
+      `📍 ${e.latlng.lat.toFixed(4)}, ${e.latlng.lng.toFixed(4)}`;
+    openModal();
+  });
+
+  map.on('click zoom movestart', () => {
+    document.getElementById('map-hint').style.opacity = '0';
+  });
+
+  // ── Toast ─────────────────────────────────────────────────────────────
+  let toastTimer;
+  function toast(msg, isError = false) {
+    const el = document.getElementById('toast');
+    el.textContent = msg;
+    el.className = 'show' + (isError ? ' error' : '');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => el.className = '', 3000);
+  }
+
+  // ── Modal ─────────────────────────────────────────────────────────────
+  function openModal() {
+    document.getElementById('modal-overlay').classList.add('open');
+    document.getElementById('f-nick').focus();
+  }
+
+  function closeModal() {
+    document.getElementById('modal-overlay').classList.remove('open');
+    document.getElementById('f-desc').value = '';
+    document.getElementById('f-photo').value = '';
+    document.getElementById('f-pot').value = '';
+    document.getElementById('f-photo-preview').style.display = 'none';
+    document.getElementById('f-photo-img').src = '';
+    window._photoBlob = null;
+  }
+
+  document.getElementById('modal-cancel').addEventListener('click', closeModal);
+  document.getElementById('modal-overlay').addEventListener('click', e => {
+    if (e.target === document.getElementById('modal-overlay')) closeModal();
+  });
+
+  // ── Photo preview + compression ───────────────────────────────────────
+  document.getElementById('f-photo').addEventListener('change', async e => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      toast('Please select an image file.', true);
+      e.target.value = '';
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      toast('Photo must be under 10MB.', true);
+      e.target.value = '';
+      return;
+    }
+
+    toast('📷 Compressing photo…');
+    try {
+      const compressed = await imageCompression(file, {
+        maxSizeMB: 0.5,
+        maxWidthOrHeight: 1200,
+        useWebWorker: true,
+      });
+      window._photoBlob = compressed;
+      const preview = document.getElementById('f-photo-preview');
+      const previewImg = document.getElementById('f-photo-img');
+      if (previewImg.src) URL.revokeObjectURL(previewImg.src);
+      previewImg.src = URL.createObjectURL(compressed);
+      preview.style.display = 'block';
+      toast(`📷 Photo ready — ${Math.round(compressed.size / 1024)}KB`);
+    } catch (err) {
+      toast('Could not process image — try a different file.', true);
+      console.error(err);
+    }
+  });
+
+  // ── Submit sighting ───────────────────────────────────────────────────
+  document.getElementById('modal-submit').addEventListener('click', async () => {
+    if (document.getElementById('f-pot').value) return;
+
+    const desc = document.getElementById('f-desc').value.trim();
+    if (!desc || desc.length < 5) { toast('Please add a description!', true); return; }
+
+    const latlng = pendingLatLng || map.getCenter();
+    const btn = document.getElementById('modal-submit');
+    btn.textContent = 'Submitting…';
+    btn.disabled = true;
+
+    try {
+      // Upload photo first if present
+      let photo_url = '';
+      if (window._photoBlob) {
+        const formData = new FormData();
+        formData.append('photo', window._photoBlob, 'photo.jpg');
+        const uploadRes = await fetch(`${API}/api/upload`, { method: 'POST', body: formData });
+        if (!uploadRes.ok) throw new Error('Photo upload failed');
+        const uploadData = await uploadRes.json();
+        photo_url = uploadData.url;
+      }
+
+      const body = {
+        lat: parseFloat(latlng.lat.toFixed(6)),
+        lng: parseFloat(latlng.lng.toFixed(6)),
+        description: desc,
+        nickname: document.getElementById('f-nick').value || 'Anonymous',
+        photo_url,
+      };
+
+      const res = await fetch(`${API}/api/sightings`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) throw new Error((await res.json()).error || 'Error');
+
+      const newSighting = await res.json();
+      sightings.unshift(newSighting);
+      addMarker(newSighting);
+      renderList();
+      updateStats();
+      closeModal();
+      toast('🦀 Sighting added! Thank you!');
+      map.flyTo([newSighting.lat, newSighting.lng], 10);
+    } catch (e) {
+      toast(e.message, true);
+    } finally {
+      btn.textContent = 'Submit Sighting';
+      btn.disabled = false;
+    }
+  });
+
+  // ── Load sightings ────────────────────────────────────────────────────
+  async function loadSightings() {
+    try {
+      const res = await fetch(`${API}/api/sightings`);
+      sightings = await res.json();
+      clusterGroup.clearLayers();
+      markers = {};
+      sightings.forEach(addMarker);
+      renderList();
+      updateStats();
+    } catch {
+      document.getElementById('sightings-list').innerHTML =
+        '<div class="empty"><span class="emoji">⚠️</span>Could not load sightings.<br>Is the API running?</div>';
+    }
+  }
+
+  // ── Add marker ────────────────────────────────────────────────────────
+  function addMarker(s) {
+    const m = L.marker([s.lat, s.lng], { icon: crabIcon(s.upvotes) });
+    m.on('click', () => focusSighting(s.id));
+    clusterGroup.addLayer(m);
+    markers[s.id] = m;
+  }
+
+  // ── Render sidebar list ───────────────────────────────────────────────
+  function renderList() {
+    const list = document.getElementById('sightings-list');
+    if (!sightings.length) {
+      list.innerHTML = '<div class="empty"><span class="emoji">🌊</span>No sightings yet.<br>Be the first to add one!</div>';
+      return;
+    }
+    list.innerHTML = '';
+    sightings.forEach(s => {
+      const card = document.createElement('div');
+      card.className = 'card' + (s.id === activeCardId ? ' active' : '');
+      card.dataset.id = s.id;
+      const date = new Date(s.created_at + 'Z').toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+      const photoEl = s.photo_url ? `<img src="${escHtml(s.photo_url)}" class="card-photo" alt="sighting photo" onerror="this.remove()" />` : '';
+      card.innerHTML = `
+        <div class="card-nick">by ${escHtml(s.nickname)} · ${s.comment_count ?? 0} comment${s.comment_count !== 1 ? 's' : ''}</div>
+        <div class="card-desc">${escHtml(s.description)}</div>
+        ${photoEl}
+        <div class="card-footer">
+          <button class="btn btn-upvote btn-sm upvote-btn" data-id="${s.id}">👍 ${s.upvotes}</button>
+          <button class="btn btn-sm comment-toggle-btn" data-id="${s.id}" style="background:var(--foam);color:var(--ocean);border:1px solid var(--teal)">💬 Comments</button>
+          <span class="card-date">${date}</span>
+        </div>
+        <div class="comments-section" id="comments-${s.id}">
+          <div id="comments-list-${s.id}"><em style="font-size:.78rem;color:var(--muted)">Loading…</em></div>
+          <div class="comment-form">
+            <input type="text" placeholder="Your nickname" id="comment-nick-${s.id}" maxlength="40" />
+            <textarea placeholder="Add a comment…" id="comment-body-${s.id}" maxlength="500" style="min-height:52px"></textarea>
+            <button class="btn btn-sm post-comment-btn" data-id="${s.id}" style="align-self:flex-end;background:var(--ocean);color:white">Post</button>
+          </div>
+        </div>
+      `;
+      card.addEventListener('click', e => {
+        if (e.target.closest('button') || e.target.closest('textarea') || e.target.closest('input')) return;
+        focusSighting(s.id);
+      });
+      list.appendChild(card);
+    });
+
+    list.querySelectorAll('.upvote-btn').forEach(btn => {
+      if (localStorage.getItem(`voted-${btn.dataset.id}`)) btn.classList.add('voted');
+      btn.addEventListener('click', () => upvote(parseInt(btn.dataset.id)));
+    });
+    list.querySelectorAll('.comment-toggle-btn').forEach(btn => {
+      btn.addEventListener('click', () => toggleComments(parseInt(btn.dataset.id)));
+    });
+    list.querySelectorAll('.post-comment-btn').forEach(btn => {
+      btn.addEventListener('click', () => postComment(parseInt(btn.dataset.id)));
+    });
+  }
+
+  // ── Focus a sighting ──────────────────────────────────────────────────
+  function focusSighting(id) {
+    activeCardId = id;
+    const s = sightings.find(x => x.id === id);
+    if (s) map.flyTo([s.lat, s.lng], Math.max(map.getZoom(), 8));
+    document.querySelectorAll('.card').forEach(c => c.classList.toggle('active', parseInt(c.dataset.id) === id));
+    const card = document.querySelector(`.card[data-id="${id}"]`);
+    if (card) card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    document.getElementById('sidebar').classList.remove('collapsed');
+  }
+
+  // ── Upvote ────────────────────────────────────────────────────────────
+  async function upvote(id) {
+    if (localStorage.getItem(`voted-${id}`)) { toast('You already upvoted this!'); return; }
+    try {
+      const res = await fetch(`${API}/api/sightings/${id}/upvote`, { method: 'POST' });
+      if (res.status === 409) { toast('Already upvoted!'); return; }
+      const data = await res.json();
+      localStorage.setItem(`voted-${id}`, '1');
+      const s = sightings.find(x => x.id === id);
+      if (s) s.upvotes = data.upvotes;
+      renderList();
+      updateStats();
+      toast('👍 Upvoted!');
+    } catch { toast('Could not upvote', true); }
+  }
+
+  // ── Comments ──────────────────────────────────────────────────────────
+  async function toggleComments(id) {
+    const section = document.getElementById(`comments-${id}`);
+    const isOpen = section.classList.contains('open');
+    section.classList.toggle('open', !isOpen);
+    if (!isOpen) await loadComments(id);
+  }
+
+  async function loadComments(id) {
+    const listEl = document.getElementById(`comments-list-${id}`);
+    try {
+      const res = await fetch(`${API}/api/sightings/${id}/comments`);
+      const comments = await res.json();
+      if (!comments.length) {
+        listEl.innerHTML = '<em style="font-size:.78rem;color:var(--muted)">No comments yet — be the first!</em>';
+        return;
+      }
+      listEl.innerHTML = comments.map(c => `
+        <div class="comment-item"><span class="comment-nick">${escHtml(c.nickname)}</span>: ${escHtml(c.body)}</div>
+      `).join('');
+    } catch { listEl.innerHTML = '<em style="font-size:.78rem;color:var(--muted)">Could not load comments</em>'; }
+  }
+
+  async function postComment(id) {
+    const nick = document.getElementById(`comment-nick-${id}`).value || 'Anonymous';
+    const body = document.getElementById(`comment-body-${id}`).value.trim();
+    if (!body) { toast('Comment cannot be empty', true); return; }
+    try {
+      const res = await fetch(`${API}/api/sightings/${id}/comments`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ nickname: nick, body }),
+      });
+      if (!res.ok) throw new Error((await res.json()).error || 'Error');
+      document.getElementById(`comment-body-${id}`).value = '';
+      await loadComments(id);
+      const s = sightings.find(x => x.id === id);
+      if (s) s.comment_count = (s.comment_count || 0) + 1;
+      toast('💬 Comment posted!');
+    } catch (e) { toast(e.message, true); }
+  }
+
+  // ── Stats ─────────────────────────────────────────────────────────────
+  function updateStats() {
+    document.getElementById('stat-count').textContent = sightings.length;
+    document.getElementById('stat-upvotes').textContent = sightings.reduce((a, s) => a + (s.upvotes || 0), 0);
+    const regions = new Set(sightings.map(s => `${Math.round(s.lat / 10)},${Math.round(s.lng / 10)}`));
+    document.getElementById('stat-countries').textContent = regions.size;
+  }
+
+  // ── Sidebar toggle ────────────────────────────────────────────────────
+  document.getElementById('toggle-sidebar-btn').addEventListener('click', () => {
+    document.getElementById('sidebar').classList.toggle('collapsed');
+  });
+  document.getElementById('close-sidebar').addEventListener('click', () => {
+    document.getElementById('sidebar').classList.add('collapsed');
+  });
+
+  // ── Utility ───────────────────────────────────────────────────────────
+  function escHtml(str) {
+    if (!str) return '';
+    return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  // ── Init ──────────────────────────────────────────────────────────────
+  loadSightings();
+</script>
+</body>
+</html>
