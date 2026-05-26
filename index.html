@@ -251,6 +251,28 @@
       #sidebar { position: fixed; right: 0; top: 58px; bottom: 0; z-index: 900; box-shadow: -4px 0 20px rgba(0,0,0,.2); }
       #sidebar.collapsed { width: 0; }
     }
+
+    #lightbox {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,.9);
+      z-index: 4000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: zoom-out;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .2s;
+    }
+    #lightbox.open { opacity: 1; pointer-events: all; }
+    #lightbox img {
+      max-width: 92vw;
+      max-height: 92vh;
+      border-radius: 8px;
+      box-shadow: 0 8px 40px rgba(0,0,0,.6);
+    }
+
   </style>
 </head>
 <body>
@@ -309,6 +331,8 @@
     </div>
   </div>
 </div>
+
+<div id="lightbox"><img id="lightbox-img" src="" alt="full size" /></div>
 
 <div id="toast"></div>
 
@@ -473,6 +497,15 @@
     }
   });
 
+
+  // Lightbox
+  document.getElementById('lightbox').addEventListener('click', () => {
+    document.getElementById('lightbox').classList.remove('open');
+  });
+  function openLightbox(src) {
+    document.getElementById('lightbox-img').src = src;
+    document.getElementById('lightbox').classList.add('open');
+  }
   // ── Load sightings ────────────────────────────────────────────────────
   async function loadSightings() {
     try {
@@ -510,7 +543,7 @@
       card.className = 'card' + (s.id === activeCardId ? ' active' : '');
       card.dataset.id = s.id;
       const date = new Date(s.created_at + 'Z').toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
-      const photoEl = s.photo_url ? `<img src="${escHtml(s.photo_url)}" class="card-photo" alt="sighting photo" onerror="this.remove()" />` : '';
+      const photoEl = s.photo_url ? `<img src="${escHtml(s.photo_url)}" class="card-photo" alt="sighting photo" onerror="this.remove()" style="cursor:zoom-in" onclick="openLightbox('${escHtml(s.photo_url)}')" />` : '';
       card.innerHTML = `
         <div class="card-nick">by ${escHtml(s.nickname)} · ${s.comment_count ?? 0} comment${s.comment_count !== 1 ? 's' : ''}</div>
         <div class="card-desc">${escHtml(s.description)}</div>
