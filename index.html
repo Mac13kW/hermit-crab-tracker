@@ -506,6 +506,19 @@
     document.getElementById('lightbox-img').src = src;
     document.getElementById('lightbox').classList.add('open');
   }
+
+  // ── Geolocation ───────────────────────────────────────────────────────
+  if (navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(
+      pos => {
+        map.flyTo([pos.coords.latitude, pos.coords.longitude], 10);
+      },
+      err => {
+        console.log('Location not available:', err.message);
+      }
+    );
+  }
+
   // ── Load sightings ────────────────────────────────────────────────────
   async function loadSightings() {
     try {
