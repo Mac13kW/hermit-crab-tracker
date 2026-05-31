@@ -247,6 +247,25 @@
       flex-shrink: 0;
     }
 
+    #locate-btn {
+      position: absolute;
+      bottom: 5rem;
+      left: 1rem;
+      z-index: 800;
+      background: var(--white);
+      border: 2px solid rgba(0,0,0,.2);
+      border-radius: 4px;
+      width: 34px;
+      height: 34px;
+      font-size: 1.1rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: var(--shadow);
+    }
+    #locate-btn:hover { background: var(--foam); }
+
     @media (max-width: 640px) {
       #sidebar { position: fixed; right: 0; top: 58px; bottom: 0; z-index: 900; box-shadow: -4px 0 20px rgba(0,0,0,.2); }
       #sidebar.collapsed { width: 0; }
@@ -293,6 +312,7 @@
 <div class="workspace">
   <div id="map"></div>
   <div id="map-hint">🖱 Click anywhere on the map to add a sighting</div>
+  <button id="locate-btn" title="Center on my location">📍</button>
 
   <div id="sidebar">
     <div class="sidebar-header">
@@ -508,16 +528,16 @@
   }
 
   // ── Geolocation ───────────────────────────────────────────────────────
-  if (navigator.geolocation) {
+  function locateMe() {
+    if (!navigator.geolocation) { toast('Geolocation not supported', true); return; }
     navigator.geolocation.getCurrentPosition(
-      pos => {
-        map.flyTo([pos.coords.latitude, pos.coords.longitude], 10);
-      },
-      err => {
-        console.log('Location not available:', err.message);
-      }
+      pos => map.flyTo([pos.coords.latitude, pos.coords.longitude], 12),
+      () => toast('Could not get your location', true)
     );
   }
+  document.getElementById('locate-btn').addEventListener('click', locateMe);
+  // Auto-locate on load
+  locateMe();
 
   // ── Load sightings ────────────────────────────────────────────────────
   async function loadSightings() {
