@@ -368,7 +368,7 @@
   const map = L.map('map', {
   center: [20, 0],
     zoom: 2,
-    maxBounds: [[-85, -120], [85, 120]],
+    maxBounds: [[-85, -190], [85, 190]],
     maxBoundsViscosity: 1.0,
     minZoom: 2,
   });
@@ -376,6 +376,7 @@
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '© <a href="https://openstreetmap.org/copyright">OpenStreetMap</a> contributors',
     maxZoom: 19,
+    noWrap: true,
   }).addTo(map);
 
   const clusterGroup = L.markerClusterGroup({ maxClusterRadius: 50 });
